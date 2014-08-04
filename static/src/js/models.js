@@ -683,7 +683,7 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
         },
 
         get_tax: function(){
-            console.log("====="+this.get_all_prices().tax);
+            // console.log("====="+this.get_all_prices().tax);
             return this.get_all_prices().tax;
         },
         get_tax_details: function(){
@@ -700,7 +700,7 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
             }
             var totalTax = base;
             var totalNoTax = base;
-            
+           
             var product =  this.get_product(); 
             var taxes_ids = product.taxes_id;
             var taxes =  self.pos.taxes;
@@ -829,7 +829,6 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
                 member			:	null,	// 会员
                 total_point     :   0,
 
-
             });
             this.pos = attributes.pos; 
             this.selected_orderline   = undefined;
@@ -915,7 +914,7 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
         get_add_point:function(){
             var point = 0 ;
             if(this.get('member')){
-                point = this.get_member_due_total() * this.get('member').points_rule;
+                point = this.getTotalTaxIncluded() * this.get('member').points_rule;
             }
         	return parseInt(point);
         },
@@ -950,45 +949,48 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
             return round_pr(discMoney, rounding);
         },
 
-        set_all_discount: function(discount){
-            this.get('orderLines').each(function(line){
-                line.set_discount(((1-discount)*100));
-            });
-        },
+        // set_all_discount: function(discount){
+        //     this.get('orderLines').each(function(line){
+        //         line.set_discount(((1-discount)*100));
+        //     });
+        // },
 
-        remove_all_discount: function(){
-            this.get('orderLines').each(function(line){
-                line.set_discount(0);
-            });  
-        },
+        // remove_all_discount: function(){
+        //     this.get('orderLines').each(function(line){
+        //         line.set_discount(0);
+        //     });  
+        // },
 
         get_all_privilege_price: function(){
             var total_price = 0
             this.get('orderLines').each(function(line){
                 total_price += line.get_line_price()    
             });
+            // console.log("total_price = "+total_price);
+            // console.log("getTotalTaxIncluded = "+ this.getTotalTaxIncluded());
             var rounding = this.pos.currency.rounding;
-            return round_pr(total_price - this.get_all_discMoney(), rounding);
+            return round_pr(total_price - this.getTotalTaxIncluded(), rounding);
         },
-        // 计算会员折扣价格
-        get_member_disc_money:function(){
-            result = this.getTotalTaxIncluded() - this.get_member_due_total();
+        // // 计算会员折扣价格
+        // get_member_disc_money:function(){
+        //     result = this.getTotalTaxIncluded() - this.get_member_due_total();
 
-            var rounding = this.pos.currency.rounding;
-            return round_pr(result, rounding);
-        },
+        //     var rounding = this.pos.currency.rounding;
+        //     return round_pr(result, rounding);
+        // },
+
         //计算会员应付价格
-        get_member_due_total:function(){
-            //console.log(this.get_member());
-            var paid_total = 0
-            if(this.get_member()){
-                paid_total = this.getTotalTaxIncluded() * this.get_member().discount;
-            }else{
-                paid_total = this.getTotalTaxIncluded();
-            }
-            var rounding = this.pos.currency.rounding;
-            return round_pr(paid_total, rounding);
-        },
+        // get_member_due_total:function(){
+        //     //console.log(this.get_member());
+        //     var paid_total = 0
+        //     if(this.get_member()){
+        //         paid_total = this.getTotalTaxIncluded() * this.get_member().discount;
+        //     }else{
+        //         paid_total = this.getTotalTaxIncluded();
+        //     }
+        //     var rounding = this.pos.currency.rounding;
+        //     return round_pr(paid_total, rounding);
+        // },
 
 
         generateUniqueId: function() {
@@ -1057,8 +1059,12 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
             }), 0);
         },
         getTotalTaxIncluded: function() {
+            var discount = 1;
+            if (this.get_member()){
+                discount = this.get_member().discount;
+            }
             return (this.get('orderLines')).reduce((function(sum, orderLine) {
-                return sum + orderLine.get_price_with_tax();
+                return sum + orderLine.get_price_with_tax() * discount;
             }), 0);
         },
         getTotalTaxIncludedNoDis: function() {
