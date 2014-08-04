@@ -1811,10 +1811,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                             self.$el.find(".verify-member-info").removeClass('oe_hidden');
                             self.$el.find(".verify-member-error-msg").addClass('oe_hidden'); 
                              //保存会员信息
-                             // console.log(trans);
                             currentOrder.set_member(trans);
-                            //currentOrder.setMemberId(member_id);
-                            // currentOrder.set_all_discount(trans.discount); 
+                           
                             button_status = false;
 
                             setTimeout(function(){
