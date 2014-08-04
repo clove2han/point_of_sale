@@ -681,18 +681,11 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             this.queue = new module.JobQueue();
             this.canceled = false;
             this.paid     = false;
-            var currentOrder = self.pos.get('selectedOrder');
 
             // initiates the connection to the payment terminal and starts the update requests
             this.start = function(){
                 var def = new $.Deferred();
-                // price = self.pos.get('selectedOrder').getDueLeft()
-                var price = currentOrder.getTbankPosAmount();
-                var pos_merchant_id = '423330159985552'
-                var pos_machine_id ='20000104'
-                var pos_merchant_ch_name = self.pos.company.name;
-                price = {price:price, pos_merchant_id:pos_merchant_id, pos_machine_id:pos_machine_id, pos_merchant_ch_name:pos_merchant_ch_name}
-                self.pos.proxy.payment_request(price)
+                self.pos.proxy.payment_request(self.pos.get('selectedOrder').getDueLeft())
                     .done(function(ack){
                         if(ack === 'ok'){
                             self.queue.schedule(self.update);
@@ -756,10 +749,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                 }
                 return (new $.Deferred()).resolve();
             }
-
-            //todo vk
-//            this.pos.get('selectedOrder').getDueLeft()
-            if(currentOrder.getTbankPosAmount() <= 0){
+            
+            if(this.pos.get('selectedOrder').getDueLeft() <= 0){
                 this.pos_widget.screen_selector.show_popup('error-negative-price');
             }else{
                 this.queue.schedule(this.start);

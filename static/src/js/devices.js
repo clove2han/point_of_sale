@@ -447,9 +447,7 @@ function openerp_pos_devices(instance,module){ //module is instance.point_of_sal
             var ret = new $.Deferred();
             this.paying = true;
             this.custom_payment_status = this.default_payment_status;
-            // return this.message('payment_request',{'price':price});// old
-            // added by vk 2014-07-23 for bank payment
-            return this.message('payment_request',{ payment: price },{ timeout: 5000 }); //{ receipt: r },{ timeout: 5000 }
+            return this.message('payment_request',{'price':price});
         },
 
         payment_status: function(){
