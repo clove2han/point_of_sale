@@ -1060,12 +1060,17 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
         },
         getTotalTaxIncluded: function() {
             var discount = 1;
+            var subtotal = 0;
+            
             if (this.get_member()){
                 discount = this.get_member().discount;
             }
-            return (this.get('orderLines')).reduce((function(sum, orderLine) {
-                return sum + orderLine.get_price_with_tax() * discount;
+            
+            subtotal = (this.get('orderLines')).reduce((function(sum, orderLine) {
+                return sum + orderLine.get_price_with_tax();
             }), 0);
+
+            return subtotal * discount;
         },
         getTotalTaxIncludedNoDis: function() {
             return (this.get('orderLines')).reduce((function(sum, orderLine) {
