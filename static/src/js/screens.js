@@ -202,12 +202,16 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             var currentOrder = this.pos.get('selectedOrder');           
             var paid_total = currentOrder.get_all_discMoney();             
             var add_point_without_member = currentOrder.get_add_point() - currentOrder.get_point_by_code('tvip');
-          
+
             if(add_point_without_member > 0){
-                this.rpc('/vip_membership/member_sale_points',{'args':{'member_id': member_id,'last_money': paid_total,'points':add_point_without_member,'name':this.pos.config.id}})
+                this.rpc('/vip_membership/member_sale_points',{'args':{ 'member_id': member_id,
+                                                                        'last_money': paid_total,
+                                                                        'points':add_point_without_member,
+                                                                        'name':this.pos.config.name}})
                     .then(function(trans){
                         if(!trans.flag){
                          alert(trans.info);
+                        
                         }                
                 });
             }
@@ -249,7 +253,6 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                         return 
                     }
                 }
-
             }
             
             self.pos.push_order(currentOrder);
@@ -1000,6 +1003,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                         action_bar.buttons['validation_member'].$el.click();
                     }else if(undefined != action_bar.buttons['validate_pay'] && false == action_bar.buttons['validate_pay'].disabled) {
                         action_bar.buttons['validate_pay'].$el.click();
+                    }else if(undefined != action_bar.buttons['validation'] && false == action_bar.buttons['validation'].disabled) {
+                        action_bar.buttons['validation'].$el.click();
                     }
                 }else if(event.which === 27){
                     self.back();
@@ -1048,6 +1053,17 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
 
         },
 
+        exist_payment:function(payment_code){
+            var flag = false
+            var paymentlines   = this.pos.get('selectedOrder').get('paymentLines').models 
+            for (var i = 0; i < paymentlines.length; i++){
+                if(paymentlines[i].cashregister.journal.code.toLowerCase() == payment_code){
+                    flag = true;
+                    return flag;
+                }
+            }
+            return flag;
+        },
         show: function(){
             this._super();
             var self = this;
@@ -1056,8 +1072,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             this.focus_selected_line();
             
             document.body.addEventListener('keyup', this.hotkey_handler);
-             
-
+            self.pos.get('selectedOrder').check_module();            
             this.init_paymentlines();
             if(self.pos.get('selectedOrder').get_member()){
                 this.update_payment_summary();
@@ -1074,7 +1089,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                     name: 'validate_pay',
                     icon: '/point_of_sale/static/src/img/icons/png48/validate.png',
                     click: function(){
-                        self.validate_order(); 
+                            self.validate_order(); 
                     },
                 });               
 
@@ -1092,19 +1107,44 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                     name: 'validation',
                     icon: '/point_of_sale/static/src/img/icons/png48/validate.png',
                     click: function(){
-                        self.validate_order(); 
+                        
+                        if(self.exist_payment('twwx') && !self.pos.company.company_registry){
+                            error={
+                                    title: "smallPos",
+                                    message:"用户微信ID未设置，请设置用户微信ID之后再使用微信支付！",
+                            };
+                            self.pos_widget.show_error(error);
+                        }else{
+                            self.validate_order(); 
+                        } 
                     },
-                });
-            
+                });             
+                
                 this.add_action_button({
-                    label: _t('会员验证'),
-                    name: 'validation_member',
-                    icon: '/point_of_sale/static/src/img/icons/png48/validate.png',
-                    click: function(){
-                        self.pos_widget.screen_selector.set_current_screen('verifymemberid');                   
-                    },
-                });
-            
+                            label: _t('会员验证'),
+                            name: 'validation_member',
+                            icon: '/point_of_sale/static/src/img/icons/png48/validate.png',
+                            click: function(){
+                                flag = self.pos.get('selectedOrder').get("member_flag");
+                                if(!flag){
+                                    error={
+                                        title: "smallPos",
+                                        message:"VIP会员管理模块未安装，请安装VIP会员管理模块之后再使用会员卡支付方式！",
+                                    };
+                                    self.pos_widget.show_error(error);
+                                }else if(self.exist_payment('twwx') && !self.pos.company.company_registry){
+                                    error={
+                                        title: "smallPos",
+                                        message:"用户微信ID未设置，请设置用户微信ID之后再使用微信支付！",
+                                    };
+                                    self.pos_widget.show_error(error);   
+                                }else{
+                                self.pos_widget.screen_selector.set_current_screen('verifymemberid'); 
+                                }
+                                                
+                            },
+                        });               
+
                 if( this.pos.config.iface_invoicing ){
                     this.add_action_button({
                             label: 'Invoice',
@@ -1129,6 +1169,12 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             }
 
 
+            if(this.pos.get('selectedOrder').get_member()){
+                this.$el.find(".discount_display").removeClass('oe_hidden');
+            }else{
+                this.$el.find(".discount_display").addClass('oe_hidden');
+            }
+
             this.update_payment_summary();
 
         },
@@ -1151,7 +1197,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
 
         back: function() {
             this.pos.get('selectedOrder').remove_member();
-            this.pos.get('selectedOrder').remove_all_discount();                     
+            //this.pos.get('selectedOrder').remove_all_discount();                     
             this.remove_empty_lines();
             this.pos_widget.screen_selector.set_current_screen(this.back_screen);
         },
@@ -1264,17 +1310,26 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             var currentOrder = this.pos.get('selectedOrder');
            
             var paidTotal = currentOrder.getPaidTotal();
-            var dueTotal = currentOrder.get_member_due_total();
+            var dueTotal = currentOrder.getTotalTaxIncluded();
+           
             var remaining = dueTotal > paidTotal ? dueTotal - paidTotal : 0;
             var change = paidTotal > dueTotal ? paidTotal - dueTotal : 0;
             var self = this;
 
 
             if(currentOrder.get_member()){   
-                this.$('.payment-due-discount').html(currentOrder.get('member').discount*100+_t("折"));
+                this.$('.payment-due-discount').show();
+                if(currentOrder.get_member().discount != 1){
+                    this.$('.payment-due-discount').html((currentOrder.get('member').discount)*100+_t("%"));                    
+                }else{
+                    this.$('.payment-due-discount').html(_t("无"));
+                }
                 var back_point = currentOrder.get_add_point();
                 var new_total_point = back_point + currentOrder.get('member').points;
                 currentOrder.set_total_point(new_total_point);
+            }else{
+
+                this.$('.payment-due-discount').hide();
             }
             self.$('.payment-due-total').html(self.format_currency(dueTotal));
             self.$('.payment-paid-total').html(self.format_currency(paidTotal));
@@ -1309,7 +1364,6 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
         validate_order: function(options) {
             var self = this;
             options = options || {};
-
 
             var currentOrder = self.pos.get('selectedOrder');
 
@@ -1348,10 +1402,10 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             }
 
             // hide onscreen (iOS) keyboard 
-            setTimeout(function(){
-                document.activeElement.blur();
-                $("input").blur();
-            },250);
+            //setTimeout(function(){
+            //    document.activeElement.blur();
+            //    $("input").blur();
+            //},250);
 
         },
 
@@ -1380,6 +1434,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
     	},
 
         set_value: function(val) {
+                   
             var selected_line =this.pos.get('selectedOrder').selected_paymentline;
             if(selected_line){
                 selected_line.set_amount(val);
@@ -1394,20 +1449,35 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
         send_verify_seconds: 60, //默认短信验证码发送时间
         enter_verify_seconds: 300, //默认短信验证码填写时间
         _set_conter: null,
+        init:function(parent, options) {
+            this._super(parent,options);
+            var self = this;
+            self.hotkey_handler = function(event){
+                if(event.which === 13){
+                    self.validate_order(self);
+                }
+            }
+        },
+
+        close: function(){
+            this._super();
+            document.body.removeEventListener('keyup',this.hotkey_handler);
+        },
 
         show: function(){
         	this._super();
         	var self = this;         	
 
+            document.body.addEventListener('keyup', self.hotkey_handler);
             
             this.init_hidden_payment_div(self);
             this.build_widgets(self);
             this.init_change_element();
-            // 默认选择短信验证方式
+            // // 默认选择短信验证方式
             self.$el.find('input.sms-radio').attr("checked",true);
-            self.$el.find('.sms').focus();
-            // self.$el.find('.sms').focus();
-            // self.$el.find('input.sms-radio').click();
+            self.$el.find('.sms').focus();   
+
+            
         },
 
 
@@ -1436,13 +1506,17 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             var currentOrder = this.pos.get('selectedOrder');
            
             if(member){
-                discount = member.discount;
                 this.$el.find(".member-id").val(member.member_id);
-                this.$el.find(".m-level").html(member.m_level);
-                this.$el.find(".m-discount").html(discount*100+" 折");
+                this.$el.find(".m-level").html(member.m_level);             
                 this.$el.find(".m-total").html(member.total_money);
                 this.$el.find(".m-points").html(member.points);
 
+                if(parseInt(member.discount*100) > 0 && parseInt(member.discount*100) < 100){                   
+                    this.$el.find(".m-discount").html(member.discount*10+" 折");
+                }else{                   
+                    this.$el.find(".m-discount").text("无");
+                }
+                
                 if(this.$el.find(".member-id").hasClass('readonly')){
                     this.$el.find(".member-card").addClass('oe_hidden');
                     this.$el.find(".member-id").attr('readonly', 'readonly');
@@ -1526,7 +1600,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
 
             var member_id = self.$el.find(".member-id").val().trim();
             var pwd = "";
-            var name = this.pos.config.id;
+            var name = this.pos.config.name;      
+            var first_money = currentOrder.get_price().toFixed(2);            
             var last_money = currentOrder.get_paymentline_amount('tvip');
         	var checked_verify_type = self.$el.find('input[name=verify-type]:checked');
             var points = currentOrder.get_point_by_code('tvip');
@@ -1558,15 +1633,16 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
 
                 type = 2
             }
-            self.validate_pay(self, member_id, pwd, last_money, name, points, type);
+            self.validate_pay(self, member_id, pwd, first_money,last_money, name, points, type);
         },
 
         //验证支付
-        validate_pay: function(self, member_id, pwd, last_money, name, points, type) {
+        validate_pay: function(self, member_id, pwd, first_money,last_money, name, points, type) {
             self.disabled_validate_btn();
 
             self.rpc('/vip_membership/member_sale_money_points',{'args':{'member_id': member_id,
                                                                     'pwd': pwd, 
+                                                                    'first_moneys':first_money,
                                                                     "last_money": last_money, 
                                                                     'name': name, 
                                                                     'type': type, 
@@ -1575,13 +1651,11 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                 self.enable_validate_btn();
 
                 if(trans.flag){
-                    var currentOrder = self.pos.get('selectedOrder');  
+                    var currentOrder = self.pos.get('selectedOrder');
                     currentOrder.set_payment_paid('tvip', true);
                     self.$el.find('.pay-status').text('支付成功');
-                    
+                    $(".sound").attr("src","/point_of_sale/static/src/img/1.wav");
                     self.validate_push_order();
-                    // setTimeout(function (){self.validate_push_order()}, 8000);
-                    
                 }else if(!trans.flag){
                     self.$el.find(".member-error-msg").removeClass('oe_hidden').html(trans.info);   
                 }
@@ -1611,7 +1685,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             });
             
             self.add_action_button({
-                label: _t('ValidateMem'),
+                label: _t('验证'),
                 name: 'ValidateMember',
                 icon: '/point_of_sale/static/src/img/icons/png48/validate.png',
                 click: function(){
@@ -1622,7 +1696,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             });
 
             //会员密码是否为空
-            // console.log(currentOrder.get_member());
+           
             if(currentOrder.get_member().has_pwd == true){
                 self.$el.find(".passwd-radio").attr('disabled',false);
             }else{
@@ -1636,6 +1710,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                     self.$el.find('.validate-message').removeClass('oe_hidden');
                     self.$el.find('.sms').val('');
                     self.$el.find('.sms').focus();
+
+
                 }else if($(this).hasClass('passwd-radio')){
                     self.$el.find('.validate-message').addClass('oe_hidden');
                     self.$el.find('.validate-passwd').removeClass('oe_hidden');
@@ -1647,6 +1723,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             //密码与短信验证
             $('.validate_btn').unbind('click');  //因为javascript与jquery中都不会有
 
+             
             self.bind_event(self.$el.find('button.validate_btn'), 'click', function(){
                 self.validate_order(self);
             });
@@ -1805,14 +1882,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                             self.$el.find(".verify-member-info").removeClass('oe_hidden');
                             self.$el.find(".verify-member-error-msg").addClass('oe_hidden'); 
                              //保存会员信息
-<<<<<<< HEAD
-=======
-                             console.log(trans);
->>>>>>> parent of c21486a... 第一次提交正式版
-                            currentOrder.set_member(trans);
-                           
+                            currentOrder.set_member(trans);                           
                             button_status = false;
-
                             setTimeout(function(){
                                 if (undefined != self.pos_widget.action_bar.buttons['Verify']){
                                     self.pos_widget.action_bar.buttons['Verify'].$el.click();
@@ -1824,7 +1895,6 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                             self.$el.find(".verify-member-info").addClass('oe_hidden');                   
                             self.$el.find(".verify-member-error-msg").removeClass('oe_hidden');
                             currentOrder.remove_member();
-                            // currentOrder.set_all_discount(1);
                             button_status = true;
                         } 
 
@@ -1845,12 +1915,18 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             member = currentOrder.get_member();
 
             if(member){
-                discount = member.discount;
 
-                this.$el.find(".verify-m-level").html(member.m_level);
-                this.$el.find(".verify-m-discount").html(discount*100+" 折");
+                this.$el.find(".verify-m-level").html(member.m_level); 
                 this.$el.find(".verify-m-total").html(member.total_money);
                 this.$el.find(".verify-m-points").html(member.points);
+
+                if(parseInt(member.discount*100) > 0 && parseInt(member.discount*100) < 100){
+                    
+                    this.$el.find(".verify-m-discount").html(member.discount*10+" 折");
+                }else{
+                    this.$el.find(".verify-m-discount").html("无");
+                }
+                
             }else{
                 discount = 1;
                 this.$el.find(".verify-m-level").html('');
@@ -1859,11 +1935,11 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                 this.$el.find(".verify-m-points").html('');
             }            
 
-            this.$el.find(".verify-pay-money").html(this.format_currency(currentOrder.get_member_due_total()));
+            this.$el.find(".verify-pay-money").html(this.format_currency(currentOrder.getTotalTaxIncluded()));
             this.$el.find(".verify-pay-points").html("积分："+currentOrder.get_add_point());
 
             if(currentOrder.get('member')){
-                this.$el.find(".verify-disc-money").html(currentOrder.get_member_disc_money().toFixed(2));
+                this.$el.find(".verify-disc-money").html(currentOrder.get_all_privilege_price().toFixed(2));
             }else{
                 this.$el.find(".verify-disc-money").html("0");            
             }                      
@@ -1895,7 +1971,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
         },
         back:function(){
             this.pos.get('selectedOrder').remove_member();
-            this.pos.get('selectedOrder').remove_all_discount();
+            // this.pos.get('selectedOrder').remove_all_discount();
             this.pos_widget.screen_selector.set_current_screen('payment');
         },
     });
