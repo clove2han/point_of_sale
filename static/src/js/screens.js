@@ -1601,7 +1601,7 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
             var member_id = self.$el.find(".member-id").val().trim();
             var pwd = "";
             var name = this.pos.config.name;      
-            var first_money = currentOrder.get_price().toFixed(2);            
+            // var first_money = currentOrder.get_price().toFixed(2);            
             var last_money = currentOrder.get_paymentline_amount('tvip');
         	var checked_verify_type = self.$el.find('input[name=verify-type]:checked');
             var points = currentOrder.get_point_by_code('tvip');
@@ -1633,16 +1633,15 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
 
                 type = 2
             }
-            self.validate_pay(self, member_id, pwd, first_money,last_money, name, points, type);
+            self.validate_pay(self, member_id, pwd,last_money, name, points, type);
         },
 
         //验证支付
-        validate_pay: function(self, member_id, pwd, first_money,last_money, name, points, type) {
+        validate_pay: function(self, member_id, pwd,last_money, name, points, type) {
             self.disabled_validate_btn();
 
             self.rpc('/vip_membership/member_sale_money_points',{'args':{'member_id': member_id,
-                                                                    'pwd': pwd, 
-                                                                    'first_moneys':first_money,
+                                                                    'pwd': pwd,                                                                    
                                                                     "last_money": last_money, 
                                                                     'name': name, 
                                                                     'type': type, 
@@ -1882,7 +1881,8 @@ function openerp_pos_screens(instance, module){ //module is instance.point_of_sa
                             self.$el.find(".verify-member-info").removeClass('oe_hidden');
                             self.$el.find(".verify-member-error-msg").addClass('oe_hidden'); 
                              //保存会员信息
-                            currentOrder.set_member(trans);                           
+                            currentOrder.set_member(trans);         
+                            console.log(trans.discount)                  
                             button_status = false;
                             setTimeout(function(){
                                 if (undefined != self.pos_widget.action_bar.buttons['Verify']){

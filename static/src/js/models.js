@@ -644,6 +644,7 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
                 product_id: this.get_product().id,
                 price_subtotal_incl:this.get_price_subtotal_incl(),
             }           
+            //console.log(this.get_price_subtotal_incl());
             return result;
         },
         //used to create a json of the ticket, to be sent to the printer
@@ -835,8 +836,7 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
                 
                 // 保存订单的会员信息
                 member			:	null,	// 会员
-                total_point     :   0,
-                price           :   0,
+                total_point     :   0,                
                 member_flag     :   false,
 
             });
@@ -851,8 +851,8 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
         check_module:function(){
             var self = this;
              self.pos.fetch('ir.module.module',['state'],[['name','=','vip_membership']]) 
-                .then(function(models){                       
-                    if(models[0].state == "installed"){                       
+                .then(function(modules){ 
+                    if(modules != '' && modules[0].state == "installed"){                       
                         self.set('member_flag',true);                        
                     }else {                       
                         self.set('member_flag',false);
@@ -860,13 +860,6 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
                 });  
         },
 
-
-        set_price:function(price){
-            this.set('price',price);            
-        },
-        get_price:function(){
-            return this.get('price');
-        },
         set_payment_paid: function(code, bool){
             this.get('paymentLines').each(function(line){
                 if(line.get_code().toLowerCase() == code.toLowerCase()){
@@ -1055,6 +1048,7 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
             }), 0);
         },
         getTotalTaxIncluded: function() {
+            var self = this;
             var discount = 1;
             var subtotal = 0;
 
@@ -1062,13 +1056,13 @@ function openerp_pos_models(instance, module){ //module is instance.point_of_sal
                 discount = this.get_member().discount;
             }
             
-            subtotal = (this.get('orderLines')).reduce((function(sum, orderLine) {
-                return sum + orderLine.get_price_with_tax();
+            subtotal = (this.get('orderLines')).reduce((function(sum, orderLine) { 
+                sum = sum + orderLine.get_price_with_tax()*discount
+                var rounding = self.pos.currency.rounding;
+                return round_pr(sum , rounding);
             }), 0);
-
             var rounding = this.pos.currency.rounding;
-
-            return round_pr(subtotal * discount, rounding);
+            return round_pr(subtotal , rounding);
         },
         getDiscountTotal: function() {
             return (this.get('orderLines')).reduce((function(sum, orderLine) {
